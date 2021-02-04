@@ -1,49 +1,63 @@
 # docker-compose for local testing
-
-version: '3.1'
+version: '3.3'
 services:
   nodebb:
-    image: ghcr.io/rez0n/nodebb:beta
+    container_name: ${PROJECT_NAME}
+    image: nibrev/nodebb:${RELEASE}
     # build:
     #   context: .
     #   dockerfile: Dockerfile
     #   args:
-    #     RELEASE: "v1.15.0-beta.29"
+    #     RELEASE: ${RELEASE}
     restart: unless-stopped
     environment:
-      URL: "http://localhost"
-      DATABASE: "redis"
-      DB_NAME: "0"
-      DB_HOST: "redis"
-      # DB_PASSWORD: "nodebb"
-      DB_PORT: "6379"
+      - URL=${URL} #Nodebb URL for config.js
+      - DB_HOST=mongodb:27017
+      - DATABASE=mongo
+      - DB_PORT=27017
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
     volumes:
-      - ./data/nodebb:/data
+      - ${NODEBB_VOLUME_PATH}:/data
+    depends_on:
+      - mongodb
+    links:
+      - mongodb
     networks:
-      - nodebb
+      - mongodb_network
     ports:
       - "4567:4567"
 
-  redis:
-    image: redis
-    restart: unless-stopped
-    volumes:
-      - ./data/redis:/data
-    networks:
-      - nodebb
-      
-  # mongo:
-  #   image: mongo
+  # redis:
+  #   image: redis
   #   restart: unless-stopped
-  #   environment:
-  #     MONGO_INITDB_DATABASE: nodebb
-  #     MONGO_INITDB_ROOT_USERNAME: mongo
-  #     MONGO_INITDB_ROOT_PASSWORD: mongo
   #   volumes:
-  #     - ./mongo_init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+  #     - ./data/redis:/data
   #   networks:
   #     - nodebb
+      
+  mongodb:
+    container_name: ${PROJECT_NAME}_mongodb
+    image: "docker.io/bitnami/mongodb:4.4-debian-10"
+    restart: unless-stopped
+    user: root
+    environment:
+      - MONGODB_USERNAME=${MONGODB_USERNAME}
+      - MONGODB_PASSWORD=${MONGODB_PASSWORD}
+      - MONGODB_DATABASE=${MONGODB_DATABASE}
+      - MONGODB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongo_init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+      - ${MONGODB_VOLUME_PATH}:/bitnami/mongodb
+    networks:
+      - mongodb_network
+
+volumes:
+  mongodb_data:
+    driver: local
 
 networks:
-  nodebb:
+  mongodb_network:
     driver: bridge
